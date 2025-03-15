@@ -1,172 +1,221 @@
-https://gitlab.com/school218063421/cprojects/school21/-/tree/main/P02D13-1/src?ref_type=heads
-
+#include <math.h>
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#define ROWS 25
-#define COLS 80
+#define WIDTH 80
+#define HEIGHT 25
+#define CELL '*'
+#define DEAD_CELL ' '
+#define SPEED_INCREMENT 50000
+#define SPEED_BASE 300000
+#define MAXSPEED 600000
 
-void print_board(int board[ROWS][COLS]);
-void update_board(int board[ROWS][COLS]);
-int neighbors(int i, int j, int board[ROWS][COLS]);
-void update_cell(int new_board[ROWS][COLS], int board[ROWS][COLS]);
-void read_file(int matrix[ROWS][COLS]);
-void assignment(int matrix[ROWS][COLS], int board[ROWS][COLS]);
-int checking_board(int board[ROWS][COLS]);
-void pressed_key(int *delay);
+/* ------- Определения функций -------- */
+char** init_matrix();
+char** clone_matrix(char** matrix);
+void clear_matrix(char** matrix);
+void output_matrix(char** matrix);
+void free_matrix(char** matrix);
 
+char* read_start_stage(int stage);
+void push_stage(char** matrix, const char* stage, int x, int y);
+
+int count_neighbours(char** matrix, int cell_x, int cell_y);
+int kill_birth(int count, int status);
+
+void update(char** matrix, int stage);
+
+// ГЛАВНЫЙ БЛОК
 int main() {
-    int board[ROWS][COLS];
-    int condition[ROWS][COLS];
-    int delay = 100000;
+    char** field = init_matrix();
+    clear_matrix(field);
+    char* stage = read_start_stage(1);
+    push_stage(field, stage, 0, 0);
+    free(stage);
 
-    // Инициализация ncurses
     initscr();
-    cbreak();
-    noecho();
-    keypad(stdscr, TRUE);
-    curs_set(0);
-    timeout(0);
+    halfdelay(1);
+    int keypress, speed = SPEED_BASE;
+    while ((keypress = getch()) != 27) {
+        switch (keypress) {
+            case 49:
+                update(field, 1);
+                break;
+            case 50:
+                update(field, 2);
+                break;
+            case 51:
+                update(field, 3);
+                break;
+            case 52:
+                update(field, 4);
+                break;
+            case 53:
+                update(field, 5);
+                break;
+            case 61:
+                speed = speed - SPEED_INCREMENT;
+                if (speed <= 0) speed = SPEED_INCREMENT;
+                break;
+            case 45:
+                speed = speed + SPEED_INCREMENT;
+                if (speed >= MAXSPEED) speed = MAXSPEED;
+                break;
+        }
 
-    read_file(condition);
-    assignment(condition, board);
-
-    do {
         clear();
-        print_board(board);
+        output_matrix(field);
+        char** newfield = clone_matrix(field);
+        for (int y = 0; y < HEIGHT; y++)
+            for (int x = 0; x < WIDTH; x++) {
+                int count = count_neighbours(field, x, y);
+                int status = 0;
+                if (field[y][x] == CELL)
+                    status = 1;
+                else
+                    status = 0;
+                if (kill_birth(count, status) == 0)
+                    newfield[y][x] = DEAD_CELL;
+                else
+                    newfield[y][x] = CELL;
+            }
+        free_matrix(field);
+        field = clone_matrix(newfield);
+        free_matrix(newfield);
         refresh();
-        pressed_key(&delay);
-        update_board(board);
-        usleep(delay);
-    } while (checking_board(board) != 1);
+        usleep(speed);
+    }
 
+    free_matrix(field);
     endwin();
-    printf("Game Over!\n");
     return 0;
 }
 
-void read_file(int matrix[ROWS][COLS]) {
-    int nfile;
-    FILE *file = NULL;
+/* ------- ИНТЕРАКТИВ ------- */
 
-    printw("Enter the initial configuration number (1-5):\n");
-    printw("1. Ship\n2. Pattern 2\n3. Pattern 3\n4. Pattern 4\n5. Pattern 5\n");
-    refresh();
-    scanw("%d", &nfile);
-
-    switch(nfile) {
-        case 1: file = fopen("1.txt", "r"); break;
-        case 2: file = fopen("2.txt", "r"); break;
-        case 3: file = fopen("3.txt", "r"); break;
-        case 4: file = fopen("4.txt", "r"); break;
-        case 5: file = fopen("5.txt", "r"); break;
-        default:
-            endwin();
-            fprintf(stderr, "Invalid input! Use numbers 1-5.\n");
-            exit(1);
-    }
-
-    if (!file) {
-        endwin();
-        fprintf(stderr, "Error opening file!\n");
-        exit(1);
-    }
-
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            fscanf(file, "%d", &matrix[i][j]);
-        }
-    }
-    fclose(file);
+void update(char** matrix, int stage) {
+    clear_matrix(matrix);
+    char* str = read_start_stage(stage);
+    push_stage(matrix, str, 0, 0);
+    free(str);
 }
 
-void assignment(int matrix[ROWS][COLS], int board[ROWS][COLS]) {
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            board[i][j] = matrix[i][j];
-        }
-    }
+/* ------- ЛОГИКА ------- */
+
+char** clone_matrix(char** matrix) {  // ВЫДЕЛЯЕТСЯ ПАМЯТЬ!!! ОЧИСТИТЬ!!!
+    char** newmatrix = init_matrix();
+    for (int i = 0; i < HEIGHT; i++)
+        for (int j = 0; j < WIDTH; j++) newmatrix[i][j] = matrix[i][j];
+    return newmatrix;
 }
 
-int checking_board(int board[ROWS][COLS]) {
-    static int prev_board[ROWS][COLS];
-    static int count = 0;
-    int same = 1;
-
-    // Проверка на стабильность
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            if (prev_board[i][j] != board[i][j]) {
-                same = 0;
-                break;
-            }
-        }
-    }
-
-    // Сохраняем текущее состояние
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            prev_board[i][j] = board[i][j];
-        }
-    }
-
-    return (same && ++count > 3) ? 1 : 0;
-}
-
-void print_board(int board[ROWS][COLS]) {
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            printw("%c", board[i][j] ? 'O' : '.');
-        }
-        printw("\n");
-    }
-}
-
-int neighbors(int i, int j, int board[ROWS][COLS]) {
+int count_neighbours(char** matrix, int cell_x, int cell_y) {
     int count = 0;
-    for (int dx = -1; dx <= 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if (dx == 0 && dy == 0) continue;
-            
-            int x = (i + dx + ROWS) % ROWS;
-            int y = (j + dy + COLS) % COLS;
-            
-            count += board[x][y];
+    for (int y = cell_y - 1; y <= cell_y + 1; y++)
+        for (int x = cell_x - 1; x <= cell_x + 1; x++) {
+            if (x >= 0 && y >= 0 && x < WIDTH && y < HEIGHT)
+                if ((x != cell_x || y != cell_y) && matrix[y][x] == CELL) count++;
         }
-    }
     return count;
 }
 
-void update_cell(int new_board[ROWS][COLS], int board[ROWS][COLS]) {
-    for (int i = 0; i < ROWS; i++) {
-        for (int j = 0; j < COLS; j++) {
-            int n = neighbors(i, j, board);
-            new_board[i][j] = (n == 3 || (board[i][j] && n == 2)) ? 1 : 0;
+int kill_birth(int count, int status) {
+    if (count < 2 || count > 3) status = 0;
+    if (count == 2 && status == 1) status = 1;
+    if (count == 3) status = 1;
+    return status;
+}
+
+/* ------- ФУНКЦИИ -------- */
+
+char** init_matrix() {
+    char** matrix = (char**)calloc(HEIGHT, sizeof(char*));
+    if (matrix != NULL) {
+        for (int i = 0; i < HEIGHT; i++) {
+            matrix[i] = (char*)calloc(WIDTH, sizeof(char));
+            if (matrix[i] == NULL) printf("Выделение памяти не удалось: Строка[%d]", i);
         }
+    } else
+        printf("Выделение памяти не удалось: [Указатели]");
+    return matrix;
+}
+
+void output_matrix(char** matrix) {
+    printw("Game of Life Automation\n");
+    for (int i = 0; i < WIDTH; i++) printw("-");
+    printw("\n");
+    for (int i = 0; i < HEIGHT; i++) {
+        for (int j = 0; j < WIDTH; j++) printw("%c", matrix[i][j]);
+        printw("\n");
     }
+    for (int i = 0; i < WIDTH; i++) printw("-");
+    printw("\nEsc - exit | 1-5 Levels | +/- Speed up/down\n");
 }
 
-void update_board(int board[ROWS][COLS]) {
-    int new_board[ROWS][COLS];
-    update_cell(new_board, board);
-    assignment(new_board, board);
+void clear_matrix(char** matrix) {
+    for (int i = 0; i < HEIGHT; i++)
+        for (int j = 0; j < WIDTH; j++) matrix[i][j] = DEAD_CELL;
 }
 
-void pressed_key(int *delay) {
-    int ch = getch();
-    if (ch != ERR) {
-        switch(ch) {
-            case '+': case '=':
-                *delay = (*delay > 50000) ? *delay - 50000 : 10000;
-                break;
-            case '-': case '_':
-                *delay += 50000;
-                break;
-            case 'q': case 'Q':
-                endwin();
-                exit(0);
+void free_matrix(char** matrix) {
+    for (int i = 0; i < HEIGHT; i++) free(matrix[i]);
+    free(matrix);
+}
+
+// -------- УСТАНОВКА НАЧАЛЬНОЙ СТАДИИ --------- //
+
+char* read_start_stage(int stage) {
+    char* stagefile;
+    char* charArray;
+    switch (stage) {
+        case 1:
+            stagefile = "stage1.txt";
+            break;
+        case 2:
+            stagefile = "stage2.txt";
+            break;
+        case 3:
+            stagefile = "stage3.txt";
+            break;
+        case 4:
+            stagefile = "stage4.txt";
+            break;
+        case 5:
+            stagefile = "stage5.txt";
+            break;
+    }
+    FILE* file = fopen(stagefile, "r");
+    if (file == NULL) {
+        printf("Невозможно открыть файл.");
+    } else {
+        fseek(file, 0, SEEK_END);
+        long fileSize = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        charArray = (char*)malloc((fileSize + 1) * sizeof(char));
+        if (charArray == NULL) {
+            printf("Выделение памяти не удалось.");
+        } else {
+            fread(charArray, sizeof(char), fileSize, file);
+            charArray[fileSize] = '\0';
+            // printf("Content of the file:\n%s", charArray);
         }
+        fclose(file);
+    }
+    return charArray;
+}
+
+void push_stage(char** matrix, const char* stage, int x, int y) {
+    int i = 0, startx = x;
+    while (stage[i] != '\0') {
+        if (stage[i] != '\n') {
+            if (x < WIDTH && y < HEIGHT && x >= 0 && y >= 0) matrix[y][x] = stage[i];
+            x++;
+        } else {
+            y++;
+            x = startx;
+        }
+        i++;
     }
 }
