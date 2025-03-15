@@ -1,3 +1,30 @@
+ gcc invert.c 
+/usr/bin/ld: /tmp/cc3YhWKn.o: warning: relocation against `stdscr' in read-only section `.text'
+/usr/bin/ld: /tmp/cc3YhWKn.o: in function `main':
+invert.c:(.text+0x52): undefined reference to `initscr'
+/usr/bin/ld: invert.c:(.text+0x72): undefined reference to `stdscr'
+/usr/bin/ld: invert.c:(.text+0x7a): undefined reference to `wrefresh'
+/usr/bin/ld: invert.c:(.text+0x81): undefined reference to `stdscr'
+/usr/bin/ld: invert.c:(.text+0x89): undefined reference to `wclear'
+/usr/bin/ld: /tmp/cc3YhWKn.o: in function `read_file':
+invert.c:(.text+0x10c): undefined reference to `initscr'
+/usr/bin/ld: invert.c:(.text+0x120): undefined reference to `printw'
+/usr/bin/ld: /tmp/cc3YhWKn.o: in function `print_board':
+invert.c:(.text+0x517): undefined reference to `printw'
+/usr/bin/ld: invert.c:(.text+0x52d): undefined reference to `printw'
+/usr/bin/ld: invert.c:(.text+0x54b): undefined reference to `printw'
+/usr/bin/ld: /tmp/cc3YhWKn.o: in function `pressed_key':
+invert.c:(.text+0x97c): undefined reference to `stdscr'
+/usr/bin/ld: invert.c:(.text+0x989): undefined reference to `nodelay'
+/usr/bin/ld: invert.c:(.text+0x990): undefined reference to `stdscr'
+/usr/bin/ld: invert.c:(.text+0x998): undefined reference to `wgetch'
+/usr/bin/ld: invert.c:(.text+0x9a0): undefined reference to `noecho'
+/usr/bin/ld: invert.c:(.text+0x9c0): undefined reference to `printw'
+/usr/bin/ld: warning: creating DT_TEXTREL in a PIE
+collect2: error: ld returned 1 exit status
+admin@fff:~/Downloads$ 
+
+
 #include <ncurses.h>
 
 #include <stdio.h>
