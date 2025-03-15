@@ -1,3 +1,6 @@
+admin@fff:~/Downloads/school21-main/P02D13-1/src$ gcc -incurses game_of_life_interactive.c 
+gcc: error: unrecognized command-line option ‘-incurses’
+
 https://gitlab.com/school218063421/cprojects/school21/-/tree/main/P02D13-1/src?ref_type=heads
 #include <ncurses.h>
 #include <stdio.h>
