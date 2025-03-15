@@ -1,3 +1,4 @@
+https://gitverse.ru/Asya_Mironova/Game-of-life-
 #include <ncurses.h>
 #include <stdio.h>
 #include <stdlib.h>
